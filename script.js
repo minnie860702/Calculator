@@ -48,14 +48,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function formatNumber(num) {
-        if (num === 0) return '0';
-        if (!num) return '0';
+        if (!num && num !== 0) return '0';
         
         let parsed = parseFloat(num);
         if (isNaN(parsed)) return '0';
         
+        // Fix floating point math errors (e.g., 0.1 + 0.2 = 0.30000000000000004)
+        // by rounding to at most 10 decimal places, then stripping trailing zeros
+        parsed = parseFloat(parsed.toFixed(10));
+        
         const isNegative = parsed < 0;
         let str = Math.abs(parsed).toString();
+        
+        // Handle scientific notation for extremely small/large numbers
+        if (str.includes('e')) {
+            return isNegative ? '-' + str : str;
+        }
+
         let parts = str.split('.');
         parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         let formatted = parts.join('.');
@@ -142,20 +151,36 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         const input = row.querySelector('input');
-        input.addEventListener('input', (e) => {
-            // Remove non-numeric chars except decimals and minus
-            let val = e.target.value.replace(/[^\d.-]/g, '');
-            
-            // Handle minus sign: keep it only if it's at the beginning
-            const isNegative = val.startsWith('-');
-            val = val.replace(/-/g, '');
-            if (isNegative) {
-                val = '-' + val;
-            }
 
-            // Prevent multiple dots
-            const dots = val.split('.');
-            if (dots.length > 2) val = dots[0] + '.' + dots.slice(1).join('');
+        function evaluateCell() {
+            let val = input.value;
+            // Only evaluate if there's an operator and it's not just a single minus
+            if (val && /[\+\-\*\/]/.test(val) && val !== '-') {
+                try {
+                    // Prevent octal evaluation by removing leading zeros from integers
+                    let cleanVal = val.replace(/(^|[^.\d])0+(\d+)/g, '$1$2');
+                    
+                    let result = new Function('return (' + cleanVal + ')')();
+                    if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
+                        result = parseFloat(result.toFixed(10)); // Clean up float errors
+                        val = result.toString();
+                        input.value = val;
+                        state.columns[colIndex].rows[rowIndex].v = val;
+                        if (type === 'diff') renderColumnRows(colIndex);
+                        updateColumnTotal(colIndex);
+                        saveState();
+                    }
+                } catch (err) {
+                    // Ignore syntax errors while typing
+                }
+            }
+        }
+
+        input.addEventListener('blur', evaluateCell);
+
+        input.addEventListener('input', (e) => {
+            // Allow numbers, decimals, and math operators
+            let val = e.target.value.replace(/[^\d.\-+*\/()]/g, '');
             
             state.columns[colIndex].rows[rowIndex].v = val;
             e.target.value = val; // Keep cursor correct
@@ -211,6 +236,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Keyboard Navigation (Enter/Tab to go to next row)
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === 'Tab') {
+                evaluateCell(); // Evaluate the expression if any
+                
                 // Shift+Tab should still work for reverse navigation
                 if (e.key === 'Tab' && e.shiftKey) return;
 
