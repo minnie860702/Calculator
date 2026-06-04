@@ -18,6 +18,10 @@ document.addEventListener('DOMContentLoaded', () => {
         isLightMode: false
     };
 
+    function createDefaultRows(count = 30) {
+        return Array(count).fill('').map(() => ({ v: '', c: null }));
+    }
+
     // Initialize from LocalStorage
     const savedState = localStorage.getItem('multi_calc_state');
     if (savedState) {
@@ -34,11 +38,10 @@ document.addEventListener('DOMContentLoaded', () => {
         applyTheme();
     } else {
         // Default: Add 3 columns with 30 rows each
-        const defaultRows = Array(30).fill('').map(() => ({ v: '', c: null }));
         state.columns = [
-            { id: Date.now(), name: 'i幣', rows: [...defaultRows], type: 'standard' },
-            { id: Date.now() + 1, name: '鑽石', rows: [...defaultRows], type: 'standard' },
-            { id: Date.now() + 2, name: '道具卡專用', rows: [...defaultRows], type: 'diff' }
+            { id: Date.now(), name: 'i幣', rows: createDefaultRows(), type: 'standard' },
+            { id: Date.now() + 1, name: '鑽石', rows: createDefaultRows(), type: 'standard' },
+            { id: Date.now() + 2, name: '道具卡專用', rows: createDefaultRows(), type: 'diff' }
         ];
         render();
     }
@@ -192,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Auto-add row if typing in the last one
             if (rowIndex === state.columns[colIndex].rows.length - 1 && val !== '') {
-                addRow(colIndex);
+                addRow(colIndex, false);
             }
             saveState();
         });
@@ -272,22 +275,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function addRow(colIndex) {
+    function addRow(colIndex, autoFocus = true) {
         state.columns[colIndex].rows.push({ v: '', c: null });
-        render();
+        renderColumnRows(colIndex);
         saveState();
         
-        // Focus the newly added row's input
-        const colEl = document.querySelector(`.calc-column[data-id="${state.columns[colIndex].id}"]`);
-        const inputs = colEl.querySelectorAll('.number-input');
-        inputs[inputs.length - 1].focus();
+        if (autoFocus) {
+            // Focus the newly added row's input
+            const colEl = document.querySelector(`.calc-column[data-id="${state.columns[colIndex].id}"]`);
+            if (colEl) {
+                const inputs = colEl.querySelectorAll('.number-input');
+                if (inputs.length > 0) {
+                    inputs[inputs.length - 1].focus();
+                }
+            }
+        }
     }
 
     function addColumn() {
         state.columns.push({
             id: Date.now(),
             name: '新一般欄位',
-            rows: Array(30).fill('').map(() => ({ v: '', c: null })),
+            rows: createDefaultRows(),
             type: 'standard'
         });
         render();
@@ -298,7 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.columns.push({
             id: Date.now(),
             name: '道具卡專用',
-            rows: Array(30).fill('').map(() => ({ v: '', c: null })),
+            rows: createDefaultRows(),
             type: 'diff'
         });
         render();
@@ -354,7 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             colEl.querySelector('.clear-column-btn').addEventListener('click', () => {
-                state.columns[colIndex].rows = Array(state.columns[colIndex].rows.length).fill('').map(() => ({ v: '', c: null }));
+                state.columns[colIndex].rows = createDefaultRows(state.columns[colIndex].rows.length);
                 render();
                 saveState();
             });
@@ -510,11 +519,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     confirmClearBtn.addEventListener('click', () => {
-        const defaultRows = Array(30).fill('').map(() => ({ v: '', c: null }));
         state.columns = [
-            { id: Date.now(), name: 'i幣', rows: [...defaultRows], type: 'standard' },
-            { id: Date.now() + 1, name: '鑽石', rows: [...defaultRows], type: 'standard' },
-            { id: Date.now() + 2, name: '道具卡專用', rows: [...defaultRows], type: 'diff' }
+            { id: Date.now(), name: 'i幣', rows: createDefaultRows(), type: 'standard' },
+            { id: Date.now() + 1, name: '鑽石', rows: createDefaultRows(), type: 'standard' },
+            { id: Date.now() + 2, name: '道具卡專用', rows: createDefaultRows(), type: 'diff' }
         ];
         render();
         saveState();
